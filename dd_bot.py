@@ -13,11 +13,14 @@ import png
 import os
 import time
 
+current_side = True
+diamond_present = False
+
 # The screen index of the play area is stored, so
 # no moving after the game starts.
 TOP_LEFT_INDEX = None
 
-DELAY = 0.8
+DELAY = 0.6
 
 # Color of each block at 10, 10
 COLORS = (
@@ -47,7 +50,7 @@ def crop_dd_screenshot(pixarray):
 
 	if not TOP_LEFT_INDEX:
         # Load it up
-		ref_pixarray = read_png_to_pixarray('topleft_ref.png')
+		ref_pixarray = read_png_to_pixarray('topleft_ref_fb.png')
 	
 		ind = search_for_subarray(pixarray, ref_pixarray)
 
@@ -154,11 +157,16 @@ def get_best_dd_point(countsarray):
 	A wrapper for find_contiguous_regions with a 
 	shortcut for diamonds.
 	"""
+	global diamond_present
 	if 0 in countsarray:
-		global DELAY
-		DELAY = 2 # Double delay for meteor action
-		rows, cols = numpy.where(countsarray == 0.)
-		return (rows[0], cols[0])
+# Only go every second time.
+		if diamond_present:
+			global DELAY
+			DELAY = 2 # Double delay for meteor action
+			rows, cols = numpy.where(countsarray == 0.)
+			diamond_present = False
+			return (rows[0], cols[0])
+		diamond_present = True
 
 	return find_contiguous_regions(countsarray)
 
@@ -167,9 +175,13 @@ def find_contiguous_regions(countsarray):
 	Find the contiguous regions in countsarray using the modified
 	flood count algorithm described in get_flood_count
 	"""
+	global current_side
+
 	Q = countsarray.copy()
 	points_checked = []
 	rows, cols = Q.shape
+
+	cols = cols / 2 - 1
 
 	best_score = 0
 	best_ind = -1
@@ -177,6 +189,9 @@ def find_contiguous_regions(countsarray):
 
 	for i in range(rows):
 		for j in range(cols):
+			if current_side:
+				j = j + cols + 2
+
 			if Q[i][j] >= 0:
 				score = get_flood_count(Q, i, j, Q[i][j])
 				if score > best_score:
@@ -184,9 +199,14 @@ def find_contiguous_regions(countsarray):
 					best_ind = countsarray[i][j]
 					best_point = (i, j)
 
+	current_side = not current_side
+
 	# Generate a nice little display
 	print countsarray
 	print "Best score: {0:d} ({1:d}, {2:d})".format(best_score, best_point[0], best_point[1])
+
+	if best_score < 3:
+		return find_contiguous_regions(countsarray)
 
 	return best_point
 
@@ -254,6 +274,8 @@ if __name__ == "__main__":
 	time.sleep(5)
 	orig_delay = DELAY
 
+	pixarray = take_screenshot()
+	write_png_from_pixarray('test.png', pixarray)
 	while 1:
 
 		# reset delay
