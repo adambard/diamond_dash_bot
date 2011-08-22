@@ -156,7 +156,7 @@ def get_best_dd_point(countsarray):
 	"""
 	if 0 in countsarray:
 		global DELAY
-		DELAY = 1.5 # Double delay for meteor action
+		DELAY = 2 # Double delay for meteor action
 		rows, cols = numpy.where(countsarray == 0.)
 		return (rows[0], cols[0])
 
@@ -252,11 +252,12 @@ if __name__ == "__main__":
 
 
 	time.sleep(5)
+	orig_delay = DELAY
 
 	while 1:
 
 		# reset delay
-		DELAY = 0.8
+		DELAY = orig_delay
 
 		pixarray = take_screenshot()
 		print "Screenshot read"
