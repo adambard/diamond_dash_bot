@@ -13,7 +13,6 @@ import png
 import os
 import time
 
-current_side = True
 diamond_present = False
 
 # The screen index of the play area is stored, so
@@ -32,6 +31,9 @@ COLORS = (
 		(6, 104, 253)) # Blue
 
 class NotDiamondDashException(Exception):
+	pass
+
+class NoPointFoundException(Exception):
 	pass
 
 def crop_dd_screenshot(pixarray):
@@ -74,7 +76,7 @@ def crop_dd_screenshot(pixarray):
 
 def search_for_subarray(A, A_sub):
 	"""
-	Search for A_sub in A
+	Search for A_sub in A, and return the coordinates to it
 
 	>>> A = numpy.array([[1,2,3,4],[5,6,7,8]])
 	>>> search_for_subarray(A, numpy.array([[2,3],[6,7]]))
@@ -109,7 +111,7 @@ def read_png_to_pixarray(filename):
 
 def write_png_from_pixarray(filename, pixarray):
 	"""
-	Write a .png image from an (x, y, 3) fill-color pixarray
+	Write a .png image from an (x, y, 3) full-color pixarray
 	"""
 
 	rows = len(pixarray)
@@ -152,36 +154,79 @@ def downsample_pixarray(pixarray, factor=40.):
 
 	return counts
 
-def get_best_dd_point(countsarray):
+def simulate_click(Q, row, col, target=None, replacement=-1):
+	"""
+	Simulate a click on the counts array,
+	replacing all columns above the clicked areas with
+	-1.
+
+	>>> Q = numpy.array([[1, 4, 2, 4], [1, 1, 5, 7]])
+	>>> res = numpy.array([[-1, -1, 2, 4], [-1, -1, 5, 7]])
+	>>> numpy.all(simulate_click(Q, 0, 0) == res)
+	True
+	"""
+	if target is None:
+		target = Q[row][col]
+
+	s = Q.shape
+	if row < 0 or col < 0 or row >= s[0] or col >= s[1] or Q[row][col] != target:
+		# Do nothing
+		return Q 
+
+	# Replace column up to there
+	for i in range(row + 1):
+		Q[i][col] = replacement	
+	
+	Q = simulate_click(Q, row+1, col, target, replacement)
+	Q = simulate_click(Q, row, col+1, target, replacement)
+	Q = simulate_click(Q, row-1, col, target, replacement)
+	Q = simulate_click(Q, row, col-1, target, replacement)
+	
+	return Q
+	
+
+def get_best_dd_points(countsarray):
 	"""
 	A wrapper for find_contiguous_regions with a 
 	shortcut for diamonds.
 	"""
 	global diamond_present
+
 	if 0 in countsarray:
-# Only go every second time.
+		# Only go for the diamond every second time.
 		if diamond_present:
 			global DELAY
+			print "Clicking diamond"
 			DELAY = 2 # Double delay for meteor action
 			rows, cols = numpy.where(countsarray == 0.)
 			diamond_present = False
-			return (rows[0], cols[0])
+			return [(rows[0], cols[0])]
+
+		print "Found diamond"
+
 		diamond_present = True
 
-	return find_contiguous_regions(countsarray)
+	points = []
+	while 1:
+		try:
+			row, col = find_largest_contiguous_region(countsarray)
+		except NoPointFoundException:
+			break
 
-def find_contiguous_regions(countsarray):
+		countsarray = simulate_click(countsarray, row, col)
+		points.append((row, col))
+
+	return points
+
+def find_largest_contiguous_region(countsarray):
 	"""
 	Find the contiguous regions in countsarray using the modified
 	flood count algorithm described in get_flood_count
 	"""
-	global current_side
 
 	Q = countsarray.copy()
 	points_checked = []
 	rows, cols = Q.shape
-
-	cols = cols / 2 - 1
 
 	best_score = 0
 	best_ind = -1
@@ -189,8 +234,6 @@ def find_contiguous_regions(countsarray):
 
 	for i in range(rows):
 		for j in range(cols):
-			if current_side:
-				j = j + cols + 2
 
 			if Q[i][j] >= 0:
 				score = get_flood_count(Q, i, j, Q[i][j])
@@ -199,14 +242,13 @@ def find_contiguous_regions(countsarray):
 					best_ind = countsarray[i][j]
 					best_point = (i, j)
 
-	current_side = not current_side
 
 	# Generate a nice little display
 	print countsarray
 	print "Best score: {0:d} ({1:d}, {2:d})".format(best_score, best_point[0], best_point[1])
 
 	if best_score < 3:
-		return find_contiguous_regions(countsarray)
+		raise NoPointFoundException("No point found.")
 
 	return best_point
 
@@ -268,14 +310,16 @@ def take_screenshot():
 if __name__ == "__main__":
 
 	import doctest
-	doctest.testmod()
+	x = doctest.testmod()
+	if x.failed:
+		exit()
 
-
-	time.sleep(5)
 	orig_delay = DELAY
 
-	pixarray = take_screenshot()
-	write_png_from_pixarray('test.png', pixarray)
+	for i in range(5):
+		print "Deploying bot in ", 5 - i
+		time.sleep(1)
+
 	while 1:
 
 		# reset delay
@@ -292,14 +336,20 @@ if __name__ == "__main__":
 
 		print "Screenshot searched"
 		countsarray = downsample_pixarray(pixarray, 40)
-		best_point = get_best_dd_point(countsarray)
+		points = get_best_dd_points(countsarray)
 
-		# Figure out where to click
-		x_offset = offset[1] + 20 + best_point[1]*40
-		y_offset = offset[0] + 20 + best_point[0]*40
+		for best_point in points:
 
-		os.system('xdotool mousemove {0} {1}'.format(x_offset, y_offset))
-		os.system('xdotool click 1')
+			print "Clicking", best_point
+			# Figure out where to click
+			x_offset = offset[1] + 20 + best_point[1]*40
+			y_offset = offset[0] + 20 + best_point[0]*40
+
+			os.system('xdotool mousemove {0} {1}'.format(x_offset, y_offset))
+			os.system('xdotool click 1')
+
+		print len(points), "points clicked"
+
 		time.sleep(DELAY)
 
 
