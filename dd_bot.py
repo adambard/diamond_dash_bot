@@ -20,7 +20,7 @@ diamond_present = False
 # no moving after the game starts.
 TOP_LEFT_INDEX = None
 
-DELAY = 0.6
+DELAY = 0.7
 
 # Color of each block at 10, 10
 COLORS = (
@@ -50,7 +50,7 @@ def crop_dd_screenshot(pixarray):
 
 	if not TOP_LEFT_INDEX:
         # Load it up
-		ref_pixarray = read_png_to_pixarray('topleft_ref_fb.png')
+		ref_pixarray = read_png_to_pixarray('topleft_ref.png')
 	
 		ind = search_for_subarray(pixarray, ref_pixarray)
 
