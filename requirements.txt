@@ -1,5 +1,2 @@
-distribute==0.6.10
 numpy==1.6.1
 pypng==0.0.12
--e svn+https://python-xlib.svn.sourceforge.net/svnroot/python-xlib/trunk@149#egg=python_xlib-0.15rc1-py2.6-dev_r149
-wsgiref==0.1.2
