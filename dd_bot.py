@@ -19,7 +19,13 @@ diamond_present = False
 # no moving after the game starts.
 TOP_LEFT_INDEX = None
 
-DELAY = 0.7
+CLICK_DELAY = 0
+DELAY = 0.5
+
+def delay(points_clicked):
+	global DELAY
+	time.sleep(DELAY + 0.1 * points_clicked)
+
 
 # Color of each block at 10, 10
 COLORS = (
@@ -321,6 +327,20 @@ if __name__ == "__main__":
 		time.sleep(1)
 
 	while 1:
+		pixarray = take_screenshot()
+		write_png_from_pixarray('screenshot.png', pixarray)
+		print "Initial screenshot taken"
+
+		try:
+			pixarray, offset = crop_dd_screenshot(pixarray)
+			print "Play area located"
+			break
+		except NotDiamondDashException as e:
+			print "Not Diamond Dash"
+			continue
+
+
+	while 1:
 
 		# reset delay
 		DELAY = orig_delay
@@ -328,13 +348,9 @@ if __name__ == "__main__":
 		pixarray = take_screenshot()
 		print "Screenshot read"
 
-		try:
-			pixarray, offset = crop_dd_screenshot(pixarray)
-		except NotDiamondDashException as e:
-			print "Not Diamond Dash"
-			continue
-
+		pixarray, offset = crop_dd_screenshot(pixarray)
 		print "Screenshot searched"
+
 		countsarray = downsample_pixarray(pixarray, 40)
 		points = get_best_dd_points(countsarray)
 
@@ -347,10 +363,13 @@ if __name__ == "__main__":
 
 			os.system('xdotool mousemove {0} {1}'.format(x_offset, y_offset))
 			os.system('xdotool click 1')
+			#time.sleep(CLICK_DELAY)
 
 		print len(points), "points clicked"
+		delay(len(points))
 
-		time.sleep(DELAY)
+
+		#time.sleep(DELAY)
 
 
 
